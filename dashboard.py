@@ -41,7 +41,7 @@ menu = st.sidebar.selectbox("Pilih Mode:", [
 if menu == "🖼️ Analisis Gambar":
     st.header("🧩 Deteksi & Klasifikasi Gambar")
 
-    sample_images = os.listdir("sample_image")
+    sample_images = os.listdir("Sample Image")
     selected_img = st.selectbox("Pilih Gambar Contoh:", sample_images)
     uploaded_file = st.file_uploader("Atau Unggah Gambar Sendiri", type=["jpg", "jpeg", "png"])
 
@@ -119,3 +119,4 @@ elif menu == "📊 Analisis Performa Model":
 # ===========================================
 st.markdown("---")
 st.markdown("**© 2025 | Dashboard UTS Riri Andriani | YOLOv8 + TensorFlow**")
+

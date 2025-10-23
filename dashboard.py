@@ -62,18 +62,28 @@ if menu == "🖼️ Analisis Gambar":
 
         with col2:
             st.subheader("🧠 Klasifikasi Gambar")
-            img_resized = img.resize((224, 224))
+
+            # Cek shape input model otomatis
+            input_shape = classifier.input_shape[1:3]
+            img_resized = img.resize(input_shape)
             img_array = image.img_to_array(img_resized)
             img_array = np.expand_dims(img_array, axis=0) / 255.0
 
+            # Debug info (opsional)
+            st.write("Ukuran input model:", input_shape)
+            st.write("Shape array prediksi:", img_array.shape)
+
+            # Prediksi
             preds = classifier.predict(img_array)[0]
             class_names = [f"Kelas {i+1}" for i in range(len(preds))]
             df_pred = pd.DataFrame({"Kelas": class_names, "Probabilitas": preds})
 
+            # Donut chart
             fig_donut = px.pie(df_pred, names="Kelas", values="Probabilitas",
                                hole=0.5, title="Distribusi Probabilitas Klasifikasi")
             st.plotly_chart(fig_donut, use_container_width=True)
 
+            # Radar chart
             fig_radar = go.Figure()
             fig_radar.add_trace(go.Scatterpolar(
                 r=preds,

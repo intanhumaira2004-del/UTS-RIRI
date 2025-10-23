@@ -8,9 +8,10 @@ import os
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import random
 
 # ===========================================
-# LOAD MODELS (cache biar gak reload terus)
+# LOAD MODELS
 # ===========================================
 @st.cache_resource
 def load_models():
@@ -21,25 +22,25 @@ def load_models():
 yolo_model, classifier = load_models()
 
 # ===========================================
-# STREAMLIT UI
+# STREAMLIT CONFIG
 # ===========================================
-st.set_page_config(page_title="UTS AI Dashboard", page_icon="🤖", layout="wide")
-st.title("🤖 Dashboard UTS – Deteksi & Klasifikasi Gambar")
+st.set_page_config(page_title="Smart Food Vision 🍱", page_icon="🍱", layout="wide")
+st.title("🍱 Smart Food Vision – Food Detection & Nutrition Estimation")
 
 menu = st.sidebar.selectbox(
     "Pilih Mode:",
-    ["🖼️ Analisis Gambar", "📊 Analisis Performa Model"]
+    ["🍛 Deteksi & Estimasi Nutrisi", "📈 Analisis Model"]
 )
 
 # ===========================================
-# MODE A - ANALISIS GAMBAR
+# MODE A – DETEKSI MAKANAN
 # ===========================================
-if menu == "🖼️ Analisis Gambar":
-    st.header("🧩 Deteksi & Klasifikasi Gambar")
+if menu == "🍛 Deteksi & Estimasi Nutrisi":
+    st.header("🍽️ Deteksi Makanan & Estimasi Kalori")
 
     sample_dir = "Sampel Image"
     if not os.path.exists(sample_dir):
-        st.error(f"Folder '{sample_dir}' tidak ditemukan. Pastikan nama folder sesuai di GitHub dan di lokal.")
+        st.error(f"Folder '{sample_dir}' tidak ditemukan. Pastikan sudah ada di direktori proyek.")
     else:
         sample_images = [f for f in os.listdir(sample_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         selected_img = st.selectbox("Pilih Gambar Contoh:", sample_images)
@@ -54,56 +55,63 @@ if menu == "🖼️ Analisis Gambar":
 
         col1, col2 = st.columns(2)
 
+        # ==============================
+        # YOLO DETECTION
+        # ==============================
         with col1:
             st.subheader("🔍 Deteksi Objek (YOLO)")
             results = yolo_model(img)
             result_img = results[0].plot()
             st.image(result_img, caption="Hasil Deteksi YOLO", use_container_width=True)
 
+        # ==============================
+        # CNN CLASSIFICATION + NUTRISI
+        # ==============================
         with col2:
-            st.subheader("🧠 Klasifikasi Gambar")
+            st.subheader("🧠 Klasifikasi & Estimasi Nutrisi")
 
-            # Cek shape input model otomatis
             input_shape = classifier.input_shape[1:3]
             img_resized = img.resize(input_shape)
             img_array = image.img_to_array(img_resized)
             img_array = np.expand_dims(img_array, axis=0) / 255.0
 
-            # Debug info (opsional)
             st.write("Ukuran input model:", input_shape)
             st.write("Shape array prediksi:", img_array.shape)
 
-            # Prediksi
             preds = classifier.predict(img_array)[0]
-            class_names = [f"Kelas {i+1}" for i in range(len(preds))]
-            df_pred = pd.DataFrame({"Kelas": class_names, "Probabilitas": preds})
+            class_names = [f"Makanan {i+1}" for i in range(len(preds))]
+            pred_index = np.argmax(preds)
+            predicted_food = class_names[pred_index]
+            confidence = preds[pred_index] * 100
 
-            # Donut chart
-            fig_donut = px.pie(df_pred, names="Kelas", values="Probabilitas",
-                               hole=0.5, title="Distribusi Probabilitas Klasifikasi")
+            st.success(f"🍽️ Prediksi: **{predicted_food}** ({confidence:.2f}%)")
+
+            # Estimasi nutrisi (contoh acak untuk simulasi)
+            kalori = random.randint(200, 600)
+            protein = random.uniform(10, 40)
+            lemak = random.uniform(5, 30)
+            karbo = random.uniform(20, 80)
+
+            df_nutrisi = pd.DataFrame({
+                "Nutrisi": ["Kalori (kcal)", "Protein (g)", "Lemak (g)", "Karbohidrat (g)"],
+                "Nilai": [kalori, protein, lemak, karbo]
+            })
+
+            fig_bar = px.bar(df_nutrisi, x="Nutrisi", y="Nilai", color="Nutrisi",
+                             title=f"Komposisi Gizi Perkiraan untuk {predicted_food}")
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+            fig_donut = px.pie(df_nutrisi.iloc[1:], names="Nutrisi", values="Nilai",
+                               hole=0.5, title="Proporsi Nutrisi (tanpa kalori)")
             st.plotly_chart(fig_donut, use_container_width=True)
 
-            # Radar chart
-            fig_radar = go.Figure()
-            fig_radar.add_trace(go.Scatterpolar(
-                r=preds,
-                theta=class_names,
-                fill='toself',
-                name='Confidence per Class'
-            ))
-            fig_radar.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
-                title="Radar Chart Confidence Tiap Kelas"
-            )
-            st.plotly_chart(fig_radar, use_container_width=True)
-
 # ===========================================
-# MODE B - ANALISIS PERFORMA MODEL
+# MODE B – ANALISIS MODEL
 # ===========================================
-elif menu == "📊 Analisis Performa Model":
-    st.header("📈 Analisis Performa Model")
-
+elif menu == "📈 Analisis Model":
+    st.header("📊 Analisis Performa Model")
     file_path = "Model/evaluasi.csv"
+
     if os.path.exists(file_path):
         df_eval = pd.read_csv(file_path)
 
@@ -125,4 +133,4 @@ elif menu == "📊 Analisis Performa Model":
 # FOOTER
 # ===========================================
 st.markdown("---")
-st.markdown("© 2025 | Dashboard UTS Riri Andriani | YOLOv8 + TensorFlow")
+st.markdown("© 2025 | Smart Food Vision by Riri Andriani | YOLOv8 + TensorFlow")

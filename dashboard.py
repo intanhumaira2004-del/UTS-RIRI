@@ -7,7 +7,6 @@ from PIL import Image
 import os
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import random
 
 # ===========================================
@@ -25,11 +24,38 @@ yolo_model, classifier = load_models()
 # STREAMLIT CONFIG
 # ===========================================
 st.set_page_config(page_title="Smart Food Vision 🍱", page_icon="🍱", layout="wide")
-st.title("🍱 Smart Food Vision – Food Detection & Nutrition Estimation")
 
-menu = st.sidebar.selectbox(
-    "Pilih Mode:",
-    ["🍛 Deteksi & Estimasi Nutrisi", "📈 Analisis Model"]
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #fafafa;
+    }
+    h1, h2, h3 {
+        text-align: center;
+        color: #2b2b2b;
+    }
+    .stButton>button {
+        background-color: #ffb347;
+        color: white;
+        font-weight: bold;
+        border-radius: 12px;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #ff944d;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("🍱 **Smart Food Vision**")
+st.markdown("### _AI-powered food detection and nutrition estimation_")
+
+menu = st.sidebar.radio(
+    "📂 Pilih Mode:",
+    ["🍛 Deteksi & Estimasi Nutrisi", "📊 Analisis Model"]
 )
 
 # ===========================================
@@ -43,29 +69,32 @@ if menu == "🍛 Deteksi & Estimasi Nutrisi":
         st.error(f"Folder '{sample_dir}' tidak ditemukan. Pastikan sudah ada di direktori proyek.")
     else:
         sample_images = [f for f in os.listdir(sample_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        selected_img = st.selectbox("Pilih Gambar Contoh:", sample_images)
-        uploaded_file = st.file_uploader("Atau Unggah Gambar Sendiri", type=["jpg", "jpeg", "png"])
+        selected_img = st.selectbox("📸 Pilih Gambar Contoh:", sample_images)
+        uploaded_file = st.file_uploader("📤 Atau Unggah Gambar Sendiri", type=["jpg", "jpeg", "png"])
 
+        # === LOAD GAMBAR ===
         if uploaded_file:
             img = Image.open(uploaded_file)
         else:
             img = Image.open(os.path.join(sample_dir, selected_img))
 
-        st.image(img, caption="Gambar yang Diuji", use_container_width=True)
+        img = img.convert("RGB")  # ⬅️ tambahkan agar tidak error channel
+        st.image(img, caption="📷 Gambar yang Diuji", use_container_width=True)
 
+        # === BAGI LAYOUT ===
         col1, col2 = st.columns(2)
 
         # ==============================
-        # YOLO DETECTION
+        # 🔍 YOLO DETECTION
         # ==============================
         with col1:
-            st.subheader("🔍 Deteksi Objek (YOLO)")
+            st.subheader("🔍 Deteksi Objek (YOLOv8)")
             results = yolo_model(img)
             result_img = results[0].plot()
             st.image(result_img, caption="Hasil Deteksi YOLO", use_container_width=True)
 
         # ==============================
-        # CNN CLASSIFICATION + NUTRISI
+        # 🧠 CNN CLASSIFICATION + NUTRISI
         # ==============================
         with col2:
             st.subheader("🧠 Klasifikasi & Estimasi Nutrisi")
@@ -75,9 +104,11 @@ if menu == "🍛 Deteksi & Estimasi Nutrisi":
             img_array = image.img_to_array(img_resized)
             img_array = np.expand_dims(img_array, axis=0) / 255.0
 
-            st.write("Ukuran input model:", input_shape)
-            st.write("Shape array prediksi:", img_array.shape)
+            # tampilkan ukuran
+            st.caption(f"Ukuran input model: {input_shape}")
+            st.caption(f"Shape array prediksi: {img_array.shape}")
 
+            # prediksi CNN
             preds = classifier.predict(img_array)[0]
             class_names = [f"Makanan {i+1}" for i in range(len(preds))]
             pred_index = np.argmax(preds)
@@ -86,7 +117,7 @@ if menu == "🍛 Deteksi & Estimasi Nutrisi":
 
             st.success(f"🍽️ Prediksi: **{predicted_food}** ({confidence:.2f}%)")
 
-            # Estimasi nutrisi (contoh acak untuk simulasi)
+            # Estimasi nutrisi simulatif
             kalori = random.randint(200, 600)
             protein = random.uniform(10, 40)
             lemak = random.uniform(5, 30)
@@ -97,32 +128,47 @@ if menu == "🍛 Deteksi & Estimasi Nutrisi":
                 "Nilai": [kalori, protein, lemak, karbo]
             })
 
-            fig_bar = px.bar(df_nutrisi, x="Nutrisi", y="Nilai", color="Nutrisi",
-                             title=f"Komposisi Gizi Perkiraan untuk {predicted_food}")
+            # Grafik batang
+            fig_bar = px.bar(
+                df_nutrisi,
+                x="Nutrisi",
+                y="Nilai",
+                color="Nutrisi",
+                title=f"🍴 Komposisi Gizi Perkiraan untuk {predicted_food}",
+                text_auto=".2f",
+            )
+            fig_bar.update_layout(showlegend=False)
             st.plotly_chart(fig_bar, use_container_width=True)
 
-            fig_donut = px.pie(df_nutrisi.iloc[1:], names="Nutrisi", values="Nilai",
-                               hole=0.5, title="Proporsi Nutrisi (tanpa kalori)")
+            # Grafik donat
+            fig_donut = px.pie(
+                df_nutrisi.iloc[1:], 
+                names="Nutrisi", 
+                values="Nilai",
+                hole=0.5, 
+                title="Proporsi Nutrisi (Tanpa Kalori)"
+            )
             st.plotly_chart(fig_donut, use_container_width=True)
 
 # ===========================================
 # MODE B – ANALISIS MODEL
 # ===========================================
-elif menu == "📈 Analisis Model":
-    st.header("📊 Analisis Performa Model")
+elif menu == "📊 Analisis Model":
+    st.header("📈 Analisis Performa Model")
     file_path = "Model/evaluasi.csv"
 
     if os.path.exists(file_path):
         df_eval = pd.read_csv(file_path)
 
-        st.subheader("🔹 Grafik Akurasi per Kelas")
+        st.subheader("🎯 Akurasi Tiap Kelas")
         fig_bar = px.bar(df_eval, x="kelas", y="akurasi", color="kelas",
-                         title="Akurasi Tiap Kelas", text_auto=".2f")
+                         title="Akurasi Model per Kelas", text_auto=".2f")
         st.plotly_chart(fig_bar, use_container_width=True)
 
-        st.subheader("📉 Tren Performa Model")
+        st.subheader("📉 Tren Loss Selama Training")
         if "epoch" in df_eval.columns and "val_loss" in df_eval.columns:
-            fig_line = px.line(df_eval, x="epoch", y="val_loss", title="Perubahan Validation Loss per Epoch")
+            fig_line = px.line(df_eval, x="epoch", y="val_loss",
+                               title="Perubahan Validation Loss per Epoch", markers=True)
             st.plotly_chart(fig_line, use_container_width=True)
         else:
             st.info("Kolom 'epoch' dan 'val_loss' tidak ditemukan di CSV.")
@@ -133,4 +179,7 @@ elif menu == "📈 Analisis Model":
 # FOOTER
 # ===========================================
 st.markdown("---")
-st.markdown("© 2025 | Smart Food Vision by Riri Andriani | YOLOv8 + TensorFlow")
+st.markdown(
+    "<p style='text-align:center; color:gray;'>© 2025 | Smart Food Vision by Riri Andriani 🍱 | YOLOv8 + TensorFlow</p>",
+    unsafe_allow_html=True
+)
